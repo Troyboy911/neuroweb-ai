@@ -1,0 +1,64 @@
+name: Deploy to EasePanel
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+        continue-on-error: false
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Deploy to EasePanel
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          EASEPANEL_API_KEY: ${{ secrets.EASEPANEL_API_KEY }}
+          EASEPANEL_PROJECT_ID: ${{ secrets.EASEPANEL_PROJECT_ID }}
+        run: |
+          # Install EasePanel CLI (if using CLI method)
+          # npm install -g @easepanel/cli
+          
+          # Option 1: Deploy using webhook (recommended for simplicity)
+          if [ -n "$EASEPANEL_WEBHOOK_URL" ]; then
+            curl -X POST ${{ secrets.EASEPANEL_WEBHOOK_URL }}
+          fi
+          
+          # Option 2: Deploy using EasePanel API
+          # curl -X POST https://app.easepanel.io/api/v1/projects/$EASEPANEL_PROJECT_ID/deploy \
+          #   -H "Authorization: Bearer $EASEPANEL_API_KEY" \
+          #   -H "Content-Type: application/json" \
+          #   -d '{"branch": "main"}'
+          
+          # Option 3: Deploy using SSH/rsync (if configured)
+          # Add your custom deployment script here
+      
+      - name: Deployment notification
+        if: success()
+        run: echo "✅ Successfully deployed to EasePanel!"
+      
+      - name: Deployment failure notification
+        if: failure()
+        run: echo "❌ Deployment to EasePanel failed!"
